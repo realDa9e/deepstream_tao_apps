@@ -100,6 +100,54 @@ typedef struct _DsSourceBin
     gint index;
 }DsSourceBinStruct;
 
+static GstPadProbeReturn 
+before_tracker_probe(GstPad * pad, GstPadProbeInfo * info,
+    gpointer u_data)
+{
+  NvDsBatchMeta *batch_meta = gst_buffer_get_nvds_batch_meta(GST_BUFFER(info->data));
+
+  /* Iterate each frame metadata in batch */
+  for (NvDsMetaList *l_frame = batch_meta->frame_meta_list; l_frame != NULL; l_frame = l_frame->next)
+  {
+      NvDsFrameMeta *frame_meta = (NvDsFrameMeta *)l_frame->data;
+      
+      g_print("@BEFORE TRACKER@ -----------SOURCE %d FRAME %d BEGIN--------, frame_meta->bInferDone: %d\n", frame_meta->source_id, frame_meta->frame_num, frame_meta->bInferDone);
+      /* Iterate object metadata in frame */
+      for (NvDsMetaList *l_obj = frame_meta->obj_meta_list; l_obj != NULL; l_obj = l_obj->next)
+      {
+
+          NvDsObjectMeta *obj_meta = (NvDsObjectMeta *)l_obj->data;
+
+          g_print("@BEFORE TRACKER@ object_id: %ld, object_label: %s, t_conf/conf: %f/%f, left: %f, left_tracking: %f, left_detect: %f\n", obj_meta->object_id, obj_meta->obj_label, obj_meta->tracker_confidence, obj_meta->confidence, obj_meta->rect_params.left, obj_meta->tracker_bbox_info.org_bbox_coords.left, obj_meta->detector_bbox_info.org_bbox_coords.left);
+      }
+  }
+  return GST_PAD_PROBE_OK;
+}
+
+static GstPadProbeReturn 
+after_tracker_probe(GstPad * pad, GstPadProbeInfo * info,
+    gpointer u_data)
+{
+  NvDsBatchMeta *batch_meta = gst_buffer_get_nvds_batch_meta(GST_BUFFER(info->data));
+
+  /* Iterate each frame metadata in batch */
+  for (NvDsMetaList *l_frame = batch_meta->frame_meta_list; l_frame != NULL; l_frame = l_frame->next)
+  {
+      NvDsFrameMeta *frame_meta = (NvDsFrameMeta *)l_frame->data;
+      
+      g_print("!AFTER TRACKER! -----------SOURCE %d FRAME %d BEGIN--------, frame_meta->bInferDone: %d\n", frame_meta->source_id, frame_meta->frame_num, frame_meta->bInferDone);
+      /* Iterate object metadata in frame */
+      for (NvDsMetaList *l_obj = frame_meta->obj_meta_list; l_obj != NULL; l_obj = l_obj->next)
+      {
+
+          NvDsObjectMeta *obj_meta = (NvDsObjectMeta *)l_obj->data;
+
+          g_print("!AFTER TRACKER! object_id: %ld, object_label: %s, t_conf/conf: %f/%f, left: %f, left_tracking: %f, left_detect: %f\n", obj_meta->object_id, obj_meta->obj_label, obj_meta->tracker_confidence, obj_meta->confidence, obj_meta->rect_params.left, obj_meta->tracker_bbox_info.org_bbox_coords.left, obj_meta->detector_bbox_info.org_bbox_coords.left);
+      }
+  }
+  return GST_PAD_PROBE_OK;
+}
+
 /* Calculate performance data */
 static GstPadProbeReturn
 osd_sink_pad_buffer_probe (GstPad * pad, GstPadProbeInfo * info,
@@ -160,6 +208,7 @@ osd_sink_pad_buffer_probe (GstPad * pad, GstPadProbeInfo * info,
   return GST_PAD_PROBE_OK;
 }
 
+#if 0
 /*Generate bodypose2d display meta right after inference */
 static GstPadProbeReturn
 tile_sink_pad_buffer_probe (GstPad * pad, GstPadProbeInfo * info,
@@ -271,6 +320,7 @@ tile_sink_pad_buffer_probe (GstPad * pad, GstPadProbeInfo * info,
   }
   return GST_PAD_PROBE_OK;
 }
+#endif
 
 /* This is the buffer probe function that we have registered on the src pad
  * of the PGIE's next queue element. The face bbox will be scale to square for
@@ -410,7 +460,7 @@ sgie_pad_buffer_probe (GstPad * pad, GstPadProbeInfo * info, gpointer u_data)
         facemarkpost->execute(output, tempheatmap, faceBBox, NULL);
       
         /*add user meta for facemark*/
-        if (!nvds_add_facemark_meta (batch_meta, obj_meta, output[0],
+        if (!nvds_add_facemark_meta (batch_meta, frame_meta, obj_meta, output[0],
             confidence)) {
           g_printerr ("Failed to get bbox from model output\n");
         }
@@ -621,6 +671,9 @@ std::vector<std::string> split(std::string str, std::string pattern)
 int
 main (int argc, char *argv[])
 {
+
+  printf("PROBLEM? 0");
+
   GMainLoop *loop = NULL;
   GstElement *pipeline = NULL,*streammux = NULL, *sink = NULL, 
              *primary_detector = NULL, *second_detector = NULL,
@@ -667,6 +720,8 @@ main (int argc, char *argv[])
       return -1;
     }
   }
+
+  g_print("PROBLEM? 1");
 
   /* Standard GStreamer initialization */
   gst_init (&argc, &argv);
@@ -882,6 +937,26 @@ main (int argc, char *argv[])
       "../../../configs/facial_tao/faciallandmark_sgie_config.txt",
       "unique-id", SECOND_DETECTOR_UID, NULL);
 
+  GstElement* tracker = gst_element_factory_make ("nvtracker", "tracker");
+  nvds_parse_tracker(tracker, argv[1], "tracker");
+  
+  osd_sink_pad = gst_element_get_static_pad (tracker, "sink");
+  if (!osd_sink_pad)
+    g_print ("Unable to get sink pad\n");
+  else
+    gst_pad_add_probe (osd_sink_pad, GST_PAD_PROBE_TYPE_BUFFER,
+        before_tracker_probe, NULL, NULL);
+  gst_object_unref (osd_sink_pad);
+  
+  osd_sink_pad = gst_element_get_static_pad (tracker, "src");
+  if (!osd_sink_pad)
+    g_print ("Unable to get sink pad\n");
+  else
+    gst_pad_add_probe (osd_sink_pad, GST_PAD_PROBE_TYPE_BUFFER,
+        after_tracker_probe, NULL, NULL);
+  gst_object_unref (osd_sink_pad);
+  
+
   /* we add a bus message handler */
   bus = gst_pipeline_get_bus (GST_PIPELINE (pipeline));
   bus_watch_id = gst_bus_add_watch (bus, bus_call, loop);
@@ -889,12 +964,12 @@ main (int argc, char *argv[])
 
   /* Set up the pipeline */
   /* we add all elements into the pipeline */
-  gst_bin_add_many (GST_BIN (pipeline), primary_detector, second_detector,
+  gst_bin_add_many (GST_BIN (pipeline), primary_detector, second_detector, tracker,
       queue1, queue2, queue3, queue4, queue5, nvvidconv, nvosd, nvtile, sink,
       NULL);
 
   if (!gst_element_link_many (streammux, queue1, primary_detector, queue2, 
-        second_detector, queue3, nvtile, queue4, nvvidconv, queue5,
+        second_detector, queue3, tracker, nvtile, queue4, nvvidconv, queue5,
         nvosd, NULL)) {
     g_printerr ("Inferring and tracking elements link failure.\n");
     return -1;
@@ -939,7 +1014,7 @@ main (int argc, char *argv[])
   std::vector<std::pair<uint32_t, uint32_t>> connect_table;
   if(isYAML) {
     GString * temp = ds_parse_config_yml_filepath(argv[1], "model-config");
-
+    g_print("PROBLEM?");
     YAML::Node config = YAML::LoadFile(temp->str);
 
     if (config.IsNull()) {
@@ -1005,7 +1080,7 @@ main (int argc, char *argv[])
   facemarkpost = std::move(faciallandmarkpostinit);
 
   /* Display the facemarks output on video. Fakesink do not need to display. */
-  if(output_type != 2) {    
+  /*if(output_type != 2) {    
     osd_sink_pad = gst_element_get_static_pad (nvtile, "sink");
     if (!osd_sink_pad)
       g_print ("Unable to get sink pad\n");
@@ -1013,7 +1088,7 @@ main (int argc, char *argv[])
       gst_pad_add_probe (osd_sink_pad, GST_PAD_PROBE_TYPE_BUFFER,
           tile_sink_pad_buffer_probe, NULL, NULL);
     gst_object_unref (osd_sink_pad);
-  }
+  }*/
 
   /*Performance measurement*/
   osd_sink_pad = gst_element_get_static_pad (nvosd, "sink");

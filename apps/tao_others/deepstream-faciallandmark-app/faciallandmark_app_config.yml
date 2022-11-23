@@ -1,9 +1,9 @@
 source-list:
-  list: file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h264.mp4;file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h264.mp4
+  list: file:///home/dannie/realfiction/repos/deepstream_tao_apps/apps/tao_others/deepstream-faciallandmark-app/mono_800p_multiple.mp4
 
 output:
   ## 1:file ouput  2:fake output 3:eglsink output
-  type: 1
+  type: 3
   ## 0: H264 encoder  1:H265 encoder
   enc: 0
   bitrate: 2000000
@@ -16,12 +16,26 @@ streammux:
   batched-push-timeout: 40000
 
 primary-gie:
-  config-file-path: ../../../configs/facial_tao/config_infer_primary_facenet.yml
+  config-file-path: ./config_infer_primary_facenet.yml
   unique-id: 1
 
 secondary-gie:
-  config-file-path: ../../../configs/facial_tao/faciallandmark_sgie_config.yml
+  config-file-path: ./faciallandmark_sgie_config.yml
   unique-id: 2
+
+tracker:
+  tracker-width: 1280
+  tracker-height: 800
+  gpu-id: 0
+  ll-lib-file: /opt/nvidia/deepstream/deepstream/lib/libnvds_nvmultiobjecttracker.so
+  # ll-config-file required to set different tracker types
+  # ll-config-file: ./config_ds_tracker_IOU.yml
+  ll-config-file: ./config_ds_tracker_NvDCF_perf.yml
+  # ll-config-file: ./config_ds_tracker_NvDCF_accuracy.yml
+  # ll-config-file: ./config_ds_tracker_DeepSORT.yml
+  enable-batch-process: 1
+  enable-past-frame: 1
+  display-tracking-id: 1
 
 model-config:
   config-file-path: ../../../configs/facial_tao/sample_faciallandmarks_config.yml

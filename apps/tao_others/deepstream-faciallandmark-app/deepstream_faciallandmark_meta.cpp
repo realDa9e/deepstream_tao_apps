@@ -59,7 +59,7 @@ void nvds_release_facemark_meta (gpointer data,  gpointer user_data)
 #define RIGHT_EYE_MARKS_START_INDEX 36
 #define RIGHT_EYE_MARKS_END_INDEX 41
 extern "C"
-gboolean nvds_add_facemark_meta (NvDsBatchMeta *batch_meta, NvDsObjectMeta
+gboolean nvds_add_facemark_meta (NvDsBatchMeta *batch_meta, NvDsFrameMeta *frame_meta, NvDsObjectMeta
         *obj_meta, cvcore::ArrayN<cvcore::Vector2f, 
         cvcore::faciallandmarks::FacialLandmarks::MAX_NUM_FACIAL_LANDMARKS>
         &marks, float *confidence)
@@ -157,5 +157,50 @@ gboolean nvds_add_facemark_meta (NvDsBatchMeta *batch_meta, NvDsObjectMeta
 
     /* We want to add NvDsUserMeta to obj level */
     nvds_add_user_meta_to_obj (obj_meta, user_meta);
+
+    nvds_acquire_meta_lock(batch_meta);
+    NvDsObjectMeta* new_obj_meta = nvds_acquire_obj_meta_from_pool(batch_meta);
+    new_obj_meta->rect_params.top = p_facemark_meta_data->right_eye_rect.top + obj_meta->rect_params.top;
+    new_obj_meta->rect_params.left = p_facemark_meta_data->right_eye_rect.left + obj_meta->rect_params.left;
+    new_obj_meta->rect_params.width = p_facemark_meta_data->right_eye_rect.right - p_facemark_meta_data->right_eye_rect.left;
+    new_obj_meta->rect_params.height = p_facemark_meta_data->right_eye_rect.bottom - p_facemark_meta_data->right_eye_rect.top;
+    new_obj_meta->parent = obj_meta;
+    new_obj_meta->confidence = *confidence;
+    new_obj_meta->object_id = UNTRACKED_OBJECT_ID;
+    new_obj_meta->class_id = 1;
+    new_obj_meta->unique_component_id = 2;
+    strcpy(new_obj_meta->obj_label, "rEye");
+    new_obj_meta->detector_bbox_info.org_bbox_coords.top = new_obj_meta->rect_params.top;
+    new_obj_meta->detector_bbox_info.org_bbox_coords.left = new_obj_meta->rect_params.left;
+    new_obj_meta->detector_bbox_info.org_bbox_coords.width = new_obj_meta->rect_params.width;
+    new_obj_meta->detector_bbox_info.org_bbox_coords.height = new_obj_meta->rect_params.height;
+    new_obj_meta->rect_params.border_color.red = 1.0;
+    new_obj_meta->rect_params.border_color.green = 0.0;
+    new_obj_meta->rect_params.border_color.blue = 1.0;
+    new_obj_meta->rect_params.border_width = 1;
+    nvds_add_obj_meta_to_frame(frame_meta, new_obj_meta, obj_meta);
+
+    new_obj_meta = nvds_acquire_obj_meta_from_pool(batch_meta);
+    new_obj_meta->rect_params.top = p_facemark_meta_data->left_eye_rect.top + obj_meta->rect_params.top;
+    new_obj_meta->rect_params.left = p_facemark_meta_data->left_eye_rect.left + obj_meta->rect_params.left;
+    new_obj_meta->rect_params.width = p_facemark_meta_data->left_eye_rect.right - p_facemark_meta_data->left_eye_rect.left;
+    new_obj_meta->rect_params.height = p_facemark_meta_data->left_eye_rect.bottom - p_facemark_meta_data->left_eye_rect.top;
+    new_obj_meta->parent = obj_meta;
+    new_obj_meta->confidence = *confidence;
+    new_obj_meta->object_id = UNTRACKED_OBJECT_ID;
+    new_obj_meta->class_id = 2;
+    new_obj_meta->unique_component_id = 2;
+    strcpy(new_obj_meta->obj_label, "lEye");
+    new_obj_meta->detector_bbox_info.org_bbox_coords.top = new_obj_meta->rect_params.top;
+    new_obj_meta->detector_bbox_info.org_bbox_coords.left = new_obj_meta->rect_params.left;
+    new_obj_meta->detector_bbox_info.org_bbox_coords.width = new_obj_meta->rect_params.width;
+    new_obj_meta->detector_bbox_info.org_bbox_coords.height = new_obj_meta->rect_params.height;
+    new_obj_meta->rect_params.border_color.red = 0.0;
+    new_obj_meta->rect_params.border_color.green = 0.0;
+    new_obj_meta->rect_params.border_color.blue = 1.0;
+    new_obj_meta->rect_params.border_width = 1;
+    nvds_add_obj_meta_to_frame(frame_meta, new_obj_meta, obj_meta);
+    nvds_release_meta_lock(batch_meta);
+
     return true;
 }

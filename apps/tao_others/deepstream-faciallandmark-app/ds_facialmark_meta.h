@@ -61,7 +61,7 @@ typedef struct
   int facemark_num;
 }NvDsFacePointsMetaData;
 
-gboolean nvds_add_facemark_meta (NvDsBatchMeta *batch_meta, NvDsObjectMeta *obj_meta,
+gboolean nvds_add_facemark_meta (NvDsBatchMeta *batch_meta, NvDsFrameMeta *frame_meta, NvDsObjectMeta *obj_meta,
          cvcore::ArrayN<cvcore::Vector2f, cvcore::faciallandmarks::FacialLandmarks::MAX_NUM_FACIAL_LANDMARKS> &marks,
          float *confidence);
 
